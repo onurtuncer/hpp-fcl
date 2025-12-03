@@ -42,7 +42,9 @@
 #include <hpp/fcl/deprecated.hh>
 #include <hpp/fcl/BV/AABB.h>
 #include <hpp/fcl/math/transform.h>
-#include <boost/shared_ptr.hpp>
+//#include <boost/shared_ptr.hpp>
+#include <hpp/fcl/boost_compat_shared_ptr.h>
+
 
 namespace hpp
 {

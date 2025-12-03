@@ -42,8 +42,11 @@
 #include <hpp/fcl/BVH/BVH_internal.h>
 #include <hpp/fcl/BV/BV_node.h>
 #include <vector>
-#include <boost/shared_ptr.hpp>
-#include <boost/noncopyable.hpp>
+
+#include <hpp/fcl/boost_compat_shared_ptr.h>
+//#include <boost/shared_ptr.hpp>
+//#include <boost/noncopyable.hpp>
+#include "hpp/fcl/boost_compat_noncopyable.h"
 
 namespace hpp
 {

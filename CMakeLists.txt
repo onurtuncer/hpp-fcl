@@ -32,72 +32,113 @@
 #  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #  POSSIBILITY OF SUCH DAMAGE.
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.16...3.31)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 set(CXX_DISABLE_WERROR TRUE)
 
 set(PROJECT_NAME hpp-fcl)
 set(PROJECT_DESCRIPTION
   "HPP fork of FCL -- The Flexible Collision Library"
   )
-SET(PROJECT_USE_CMAKE_EXPORT TRUE)
+set(PROJECT_USE_CMAKE_EXPORT FALSE)
 
 # Do not support CMake older than 2.8.12
-CMAKE_POLICY(SET CMP0022 NEW)
-SET(PROJECT_USE_KEYWORD_LINK_LIBRARIES TRUE)
-SET(DOXYGEN_USE_TEMPLATE_CSS TRUE)
+cmake_policy(SET CMP0022 NEW)
+set(PROJECT_USE_KEYWORD_LINK_LIBRARIES TRUE)
+set(DOXYGEN_USE_TEMPLATE_CSS TRUE)
 
 # Check if the submodule cmake have been initialized
-IF(NOT EXISTS "${CMAKE_SOURCE_DIR}/cmake/base.cmake")
-  MESSAGE(FATAL_ERROR "\nPlease run the following command first:\ngit submodule update --init\n")
-ENDIF()
+if(NOT EXISTS "${CMAKE_SOURCE_DIR}/cmake/base.cmake")
+  message(FATAL_ERROR "\nPlease run the following command first:\ngit submodule update --init\n")
+endif()
 
-include(cmake/boost.cmake)
+# --------------------------------------------------------------------
+# Eigen: Windows-only, vendored, no find_package(Eigen3) anymore
+# --------------------------------------------------------------------
+set(EIGEN3_VENDOR_DIR "${CMAKE_SOURCE_DIR}/vendor/eigen")
+
+if (EXISTS "${EIGEN3_VENDOR_DIR}/Eigen/Dense")
+    message(STATUS "Using vendored Eigen headers in ${EIGEN3_VENDOR_DIR}")
+
+    add_library(eigen3_vendor INTERFACE)
+    target_include_directories(eigen3_vendor
+        INTERFACE
+            "${EIGEN3_VENDOR_DIR}"
+    )
+
+    # Modern imported target name expected by most code
+    add_library(Eigen3::Eigen ALIAS eigen3_vendor)
+
+    # Old-style variables some macros might check
+    set(EIGEN3_INCLUDE_DIR "${EIGEN3_VENDOR_DIR}")
+    set(Eigen3_FOUND TRUE)
+    set(EIGEN3_FOUND TRUE)
+else()
+    message(FATAL_ERROR
+        "Eigen3 not found: vendored headers at "
+        "${EIGEN3_VENDOR_DIR}/Eigen/Dense"
+    )
+endif()
+
+# --------------------------------------------------------------------
+# Project infrastructure
+# --------------------------------------------------------------------
+#include(cmake/boost.cmake)
 include(cmake/python.cmake)
 include(cmake/hpp.cmake)
-include(cmake/apple.cmake)
+# include(cmake/apple.cmake)  # <-- removed for Windows-only fork
 include(cmake/ide.cmake)
 
-SET(CMAKE_MODULE_PATH
+set(CMAKE_MODULE_PATH
   ${CMAKE_SOURCE_DIR}/cmake-modules/
   ${CMAKE_MODULE_PATH})
 
-# If needed, fix CMake policy for APPLE systems
-APPLY_DEFAULT_APPLE_CONFIGURATION()
+# Apple-specific policy – not needed on Windows
+# APPLY_DEFAULT_APPLE_CONFIGURATION()  # <-- removed
 
-OPTION(BUILD_PYTHON_INTERFACE "Build the python bindings" OFF)
+option(BUILD_PYTHON_INTERFACE "Build the python bindings" OFF)
 
 COMPUTE_PROJECT_ARGS(PROJECT_ARGS LANGUAGES CXX)
-PROJECT(${PROJECT_NAME} ${PROJECT_ARGS})
+project(${PROJECT_NAME} ${PROJECT_ARGS})
 
-ADD_PROJECT_DEPENDENCY(Eigen3 REQUIRED PKG_CONFIG_REQUIRES "eigen3 >= 3.0.0")
+# --------------------------------------------------------------------
+# Dependencies
+# --------------------------------------------------------------------
 
-if(BUILD_PYTHON_INTERFACE)
-  FIND_PACKAGE(eigenpy 2.2 REQUIRED)
-endif()
+# We already wired Eigen above; do NOT call the hpp "ADD_PROJECT_DEPENDENCY(Eigen3 ...)"
+# which would try to run find_package(Eigen3) and blow up on Windows.
+# ADD_PROJECT_DEPENDENCY(Eigen3 REQUIRED PKG_CONFIG_REQUIRES "eigen3 >= 3.0.0")
 
 # Required dependencies
-SET_BOOST_DEFAULT_OPTIONS()
-EXPORT_BOOST_DEFAULT_OPTIONS()
-ADD_PROJECT_DEPENDENCY(Boost REQUIRED)
-if (BUILD_PYTHON_INTERFACE)
-  FINDPYTHON()
-  search_for_boost_python(REQUIRED)
-  find_package(Boost REQUIRED COMPONENTS system)
-endif ()
+# For this Windows-only fork, skip the whole Boost dependency mechanism.
+# If something later really needs Boost, we can wire it manually or via vcpkg.
+
+# SET_BOOST_DEFAULT_OPTIONS()
+# EXPORT_BOOST_DEFAULT_OPTIONS()
+# ADD_PROJECT_DEPENDENCY(Boost REQUIRED)
+
+
 
 # Optional dependencies
-ADD_PROJECT_DEPENDENCY(octomap PKG_CONFIG_REQUIRES "octomap >= 1.6")
-if(octomap_FOUND)
-  SET(HPP_FCL_HAVE_OCTOMAP TRUE)
-  string(REPLACE "." ";" VERSION_LIST ${octomap_VERSION})
-  list(GET VERSION_LIST 0 OCTOMAP_MAJOR_VERSION)
-  list(GET VERSION_LIST 1 OCTOMAP_MINOR_VERSION)
-  list(GET VERSION_LIST 2 OCTOMAP_PATCH_VERSION)
-  message(STATUS "FCL uses Octomap")
-else()
-  SET(HPP_FCL_HAVE_OCTOMAP FALSE)
-  message(STATUS "FCL does not use Octomap")
-endif()
+# Disable octomap/pkg-config on Windows for now
+# ADD_PROJECT_DEPENDENCY(octomap PKG_CONFIG_REQUIRES "octomap >= 1.6")
+# if(octomap_FOUND)
+#   set(HPP_FCL_HAVE_OCTOMAP TRUE)
+#   string(REPLACE "." ";" VERSION_LIST ${octomap_VERSION})
+#   list(GET VERSION_LIST 0 OCTOMAP_MAJOR_VERSION)
+#   list(GET VERSION_LIST 1 OCTOMAP_MINOR_VERSION)
+#   list(GET VERSION_LIST 2 OCTOMAP_PATCH_VERSION)
+#   message(STATUS "FCL uses Octomap")
+# else()
+#   set(HPP_FCL_HAVE_OCTOMAP FALSE)
+#   message(STATUS "FCL does not use Octomap")
+# endif()
+set(HPP_FCL_HAVE_OCTOMAP FALSE)
+message(STATUS "FCL does not use Octomap (Windows-only fork)")
 
 option(HPP_FCL_HAS_QHULL "use qhull library to compute convex hulls." FALSE)
 if(HPP_FCL_HAS_QHULL)
@@ -120,9 +161,9 @@ if(HPP_FCL_HAS_QHULL)
     )
 endif()
 
-FIND_PACKAGE(assimp REQUIRED)
+find_package(assimp REQUIRED)
 
-SET(${PROJECT_NAME}_HEADERS
+set(${PROJECT_NAME}_HEADERS
   include/hpp/fcl/collision_data.h
   include/hpp/fcl/BV/kIOS.h
   include/hpp/fcl/BV/BV.h
@@ -172,19 +213,21 @@ SET(${PROJECT_NAME}_HEADERS
   include/hpp/fcl/internal/traversal.h
   )
 
-#add_subdirectory(doc)
+# add_subdirectory(doc)
 add_subdirectory(src)
 if (BUILD_PYTHON_INTERFACE)
   add_subdirectory(python)
 endif ()
-#add_subdirectory(test)
+# add_subdirectory(test)
 
 pkg_config_append_libs("hpp-fcl")
-IF(HPP_FCL_HAVE_OCTOMAP)
-  # FCL_HAVE_OCTOMAP kept for backward compatibility reasons.
-  PKG_CONFIG_APPEND_CFLAGS(
+if(HPP_FCL_HAVE_OCTOMAP)
+  # FCL_HAVE_OCTOMAP kept for backward compatibility reasons.
+  pkg_config_append_cflags(
     "-DHPP_FCL_HAVE_OCTOMAP -DFCL_HAVE_OCTOMAP -DOCTOMAP_MAJOR_VERSION=${OCTOMAP_MAJOR_VERSION} -DOCTOMAP_MINOR_VERSION=${OCTOMAP_MINOR_VERSION} -DOCTOMAP_PATCH_VERSION=${OCTOMAP_PATCH_VERSION}")
-ENDIF(HPP_FCL_HAVE_OCTOMAP)
+endif()
 
 # Install catkin package.xml
-INSTALL(FILES package.xml DESTINATION share/${PROJECT_NAME})
+#install(FILES package.xml DESTINATION share/${PROJECT_NAME})
+
+

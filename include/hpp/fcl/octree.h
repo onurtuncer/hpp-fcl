@@ -40,7 +40,8 @@
 #define HPP_FCL_OCTREE_H
 
 
-#include <boost/shared_ptr.hpp>
+//#include <boost/shared_ptr.hpp>
+#include <hpp/fcl/boost_compat_shared_ptr.h>
 #include <boost/array.hpp>
 
 #include <octomap/octomap.h>

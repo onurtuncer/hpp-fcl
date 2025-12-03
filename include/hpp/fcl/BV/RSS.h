@@ -39,7 +39,10 @@
 #define HPP_FCL_RSS_H
 
 #include <hpp/fcl/data_types.h>
-#include <boost/math/constants/constants.hpp>
+//#include <boost/math/constants/constants.hpp>
+
+#include <hpp/fcl/boost_compat_constants.h>
+
 
 namespace hpp
 {

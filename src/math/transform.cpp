@@ -37,7 +37,9 @@
 
 
 #include <hpp/fcl/math/transform.h>
-#include <boost/math/constants/constants.hpp>
+//#include <boost/math/constants/constants.hpp>
+#include "hpp/fcl/boost_compat_constants.h"
+
 
 namespace hpp
 {

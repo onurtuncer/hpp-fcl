@@ -37,7 +37,8 @@
 #ifndef HPP_FCL_FWD_HH
 #define HPP_FCL_FWD_HH
 
-#include <boost/shared_ptr.hpp>
+//#include <boost/shared_ptr.hpp>
+#include <hpp/fcl/boost_compat_shared_ptr.h>
 
 #include <hpp/fcl/config.hh>
 

@@ -39,7 +39,8 @@
 #include <iostream>
 #include <limits>
 #include <vector>
-#include <boost/math/special_functions/fpclassify.hpp> // isnan.
+//#include <boost/math/special_functions/fpclassify.hpp> // isnan.
+#include "hpp/fcl/boost_compat_fpclassify.h"
 #include <hpp/fcl/internal/tools.h>
 
 namespace hpp
