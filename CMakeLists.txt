@@ -51,9 +51,18 @@ cmake_policy(SET CMP0022 NEW)
 set(PROJECT_USE_KEYWORD_LINK_LIBRARIES TRUE)
 set(DOXYGEN_USE_TEMPLATE_CSS TRUE)
 
-# Check if the submodule cmake have been initialized
+# --------------------------------------------------------------------
+# Windows safety: force 64-bit builds under MSVC
+# --------------------------------------------------------------------
+if(MSVC AND NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+  message(FATAL_ERROR "hpp-fcl Windows build must be 64-bit (x64), not Win32/x86.")
+endif()
+
+# --------------------------------------------------------------------
+# Check if the submodule cmake has been initialized
+# --------------------------------------------------------------------
 if(NOT EXISTS "${CMAKE_SOURCE_DIR}/cmake/base.cmake")
-  message(FATAL_ERROR "\nPlease run the following command first:\ngit submodule update --init\n")
+  message(FATAL_ERROR "\nPlease run the following command first:\n  git submodule update --init\n")
 endif()
 
 # --------------------------------------------------------------------
@@ -61,27 +70,27 @@ endif()
 # --------------------------------------------------------------------
 set(EIGEN3_VENDOR_DIR "${CMAKE_SOURCE_DIR}/vendor/eigen")
 
-if (EXISTS "${EIGEN3_VENDOR_DIR}/Eigen/Dense")
-    message(STATUS "Using vendored Eigen headers in ${EIGEN3_VENDOR_DIR}")
+if(EXISTS "${EIGEN3_VENDOR_DIR}/Eigen/Dense")
+  message(STATUS "Using vendored Eigen headers in ${EIGEN3_VENDOR_DIR}")
 
-    add_library(eigen3_vendor INTERFACE)
-    target_include_directories(eigen3_vendor
-        INTERFACE
-            "${EIGEN3_VENDOR_DIR}"
-    )
+  add_library(eigen3_vendor INTERFACE)
+  target_include_directories(eigen3_vendor
+    INTERFACE
+      "${EIGEN3_VENDOR_DIR}"
+  )
 
-    # Modern imported target name expected by most code
-    add_library(Eigen3::Eigen ALIAS eigen3_vendor)
+  # Modern imported target name expected by most code
+  add_library(Eigen3::Eigen ALIAS eigen3_vendor)
 
-    # Old-style variables some macros might check
-    set(EIGEN3_INCLUDE_DIR "${EIGEN3_VENDOR_DIR}")
-    set(Eigen3_FOUND TRUE)
-    set(EIGEN3_FOUND TRUE)
+  # Old-style variables some macros might check
+  set(EIGEN3_INCLUDE_DIR "${EIGEN3_VENDOR_DIR}")
+  set(Eigen3_FOUND TRUE)
+  set(EIGEN3_FOUND TRUE)
 else()
-    message(FATAL_ERROR
-        "Eigen3 not found: vendored headers at "
-        "${EIGEN3_VENDOR_DIR}/Eigen/Dense"
-    )
+  message(FATAL_ERROR
+    "Eigen3 not found: vendored headers at "
+    "${EIGEN3_VENDOR_DIR}/Eigen/Dense"
+  )
 endif()
 
 # --------------------------------------------------------------------
@@ -97,46 +106,21 @@ set(CMAKE_MODULE_PATH
   ${CMAKE_SOURCE_DIR}/cmake-modules/
   ${CMAKE_MODULE_PATH})
 
-# Apple-specific policy – not needed on Windows
-# APPLY_DEFAULT_APPLE_CONFIGURATION()  # <-- removed
-
 option(BUILD_PYTHON_INTERFACE "Build the python bindings" OFF)
 
 COMPUTE_PROJECT_ARGS(PROJECT_ARGS LANGUAGES CXX)
 project(${PROJECT_NAME} ${PROJECT_ARGS})
 
 # --------------------------------------------------------------------
-# Dependencies
+# Optional / disabled dependencies
 # --------------------------------------------------------------------
 
-# We already wired Eigen above; do NOT call the hpp "ADD_PROJECT_DEPENDENCY(Eigen3 ...)"
-# which would try to run find_package(Eigen3) and blow up on Windows.
-# ADD_PROJECT_DEPENDENCY(Eigen3 REQUIRED PKG_CONFIG_REQUIRES "eigen3 >= 3.0.0")
-
-# Required dependencies
-# For this Windows-only fork, skip the whole Boost dependency mechanism.
-# If something later really needs Boost, we can wire it manually or via vcpkg.
-
+# No Boost on this Windows-only fork for now
 # SET_BOOST_DEFAULT_OPTIONS()
 # EXPORT_BOOST_DEFAULT_OPTIONS()
 # ADD_PROJECT_DEPENDENCY(Boost REQUIRED)
 
-
-
-# Optional dependencies
-# Disable octomap/pkg-config on Windows for now
-# ADD_PROJECT_DEPENDENCY(octomap PKG_CONFIG_REQUIRES "octomap >= 1.6")
-# if(octomap_FOUND)
-#   set(HPP_FCL_HAVE_OCTOMAP TRUE)
-#   string(REPLACE "." ";" VERSION_LIST ${octomap_VERSION})
-#   list(GET VERSION_LIST 0 OCTOMAP_MAJOR_VERSION)
-#   list(GET VERSION_LIST 1 OCTOMAP_MINOR_VERSION)
-#   list(GET VERSION_LIST 2 OCTOMAP_PATCH_VERSION)
-#   message(STATUS "FCL uses Octomap")
-# else()
-#   set(HPP_FCL_HAVE_OCTOMAP FALSE)
-#   message(STATUS "FCL does not use Octomap")
-# endif()
+# Octomap disabled
 set(HPP_FCL_HAVE_OCTOMAP FALSE)
 message(STATUS "FCL does not use Octomap (Windows-only fork)")
 
@@ -149,20 +133,40 @@ if(HPP_FCL_HAS_QHULL)
   execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
     ${CMAKE_SOURCE_DIR}/third-parties/qhull/src/libqhullcpp
     ${CMAKE_CURRENT_BINARY_DIR}/third-parties/libqhullcpp
-    )
+  )
   set(Qhullcpp_PREFIX ${CMAKE_BINARY_DIR}/third-parties)
   find_path(Qhull_r_INCLUDE_DIR
     NAMES libqhull_r/libqhull_r.h
     PATHS ${Qhull_PREFIX}
-    )
+  )
   find_library(Qhull_r_LIBRARY
     NAMES libqhull_r.so
     PATHS ${Qhull_PREFIX}
-    )
+  )
 endif()
 
-find_package(assimp REQUIRED)
+# --------------------------------------------------------------------
+# Assimp (prefer vcpkg manifest mode, fall back to normal CONFIG find)
+# --------------------------------------------------------------------
+if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+  set(_assimp_config
+      "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/assimp/assimpConfig.cmake")
 
+  if(EXISTS "${_assimp_config}")
+    message(STATUS "Using Assimp config from vcpkg: ${_assimp_config}")
+    include("${_assimp_config}")
+  else()
+    message(FATAL_ERROR
+      "Assimp config not found at ${_assimp_config}. "
+      "Did vcpkg install assimp for triplet ${VCPKG_TARGET_TRIPLET}?")
+  endif()
+else()
+  find_package(assimp CONFIG REQUIRED)
+endif()
+
+# --------------------------------------------------------------------
+# Public headers list (used by install / pkg-config helpers)
+# --------------------------------------------------------------------
 set(${PROJECT_NAME}_HEADERS
   include/hpp/fcl/collision_data.h
   include/hpp/fcl/BV/kIOS.h
@@ -211,15 +215,38 @@ set(${PROJECT_NAME}_HEADERS
   include/hpp/fcl/internal/traversal_node_shapes.h
   include/hpp/fcl/internal/traversal_recurse.h
   include/hpp/fcl/internal/traversal.h
-  )
+)
 
+# --------------------------------------------------------------------
+# Subdirectories
+# --------------------------------------------------------------------
 # add_subdirectory(doc)
 add_subdirectory(src)
-if (BUILD_PYTHON_INTERFACE)
+if(BUILD_PYTHON_INTERFACE)
   add_subdirectory(python)
-endif ()
+endif()
 # add_subdirectory(test)
 
+# --------------------------------------------------------------------
+# Wire Assimp to our library target
+# (hpp-fcl is defined in src/CMakeLists.txt)
+# --------------------------------------------------------------------
+if(TARGET hpp-fcl)
+  if(TARGET assimp::assimp)
+    target_link_libraries(hpp-fcl PUBLIC assimp::assimp)
+    target_include_directories(hpp-fcl PUBLIC
+      $<TARGET_PROPERTY:assimp::assimp,INTERFACE_INCLUDE_DIRECTORIES>
+    )
+  else()
+    message(FATAL_ERROR "assimp::assimp target not found – Assimp config was not loaded correctly.")
+  endif()
+else()
+  message(FATAL_ERROR "Target hpp-fcl not defined; check src/CMakeLists.txt")
+endif()
+
+# --------------------------------------------------------------------
+# pkg-config export
+# --------------------------------------------------------------------
 pkg_config_append_libs("hpp-fcl")
 if(HPP_FCL_HAVE_OCTOMAP)
   # FCL_HAVE_OCTOMAP kept for backward compatibility reasons.
@@ -227,7 +254,6 @@ if(HPP_FCL_HAVE_OCTOMAP)
     "-DHPP_FCL_HAVE_OCTOMAP -DFCL_HAVE_OCTOMAP -DOCTOMAP_MAJOR_VERSION=${OCTOMAP_MAJOR_VERSION} -DOCTOMAP_MINOR_VERSION=${OCTOMAP_MINOR_VERSION} -DOCTOMAP_PATCH_VERSION=${OCTOMAP_PATCH_VERSION}")
 endif()
 
-# Install catkin package.xml
-#install(FILES package.xml DESTINATION share/${PROJECT_NAME})
-
+# Install catkin package.xml (disabled in this fork)
+# install(FILES package.xml DESTINATION share/${PROJECT_NAME})
 

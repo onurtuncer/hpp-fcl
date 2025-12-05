@@ -1,4 +1,4 @@
-#
+##
 # Software License Agreement (BSD License)
 #
 #  Copyright (c) 2014, 2020 CNRS-LAAS
@@ -32,7 +32,11 @@
 #  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #  POSSIBILITY OF SUCH DAMAGE.
 
+# --------------------------------------------------------------------
+# Sources
+# --------------------------------------------------------------------
 set(LIBRARY_NAME ${PROJECT_NAME})
+
 set(${LIBRARY_NAME}_SOURCES
   collision.cpp
   distance_func_matrix.cpp
@@ -79,8 +83,11 @@ set(${LIBRARY_NAME}_SOURCES
   collision_utility.cpp
   mesh_loader/assimp.cpp
   mesh_loader/loader.cpp
-  )
+)
 
+# --------------------------------------------------------------------
+# Optional QHull support
+# --------------------------------------------------------------------
 if(HPP_FCL_HAS_QHULL)
   set(
     libqhullcpp_HEADERS
@@ -108,7 +115,7 @@ if(HPP_FCL_HAS_QHULL)
     ${Qhullcpp_PREFIX}/libqhullcpp/RboxPoints.h
     ${Qhullcpp_PREFIX}/libqhullcpp/RoadError.h
     ${Qhullcpp_PREFIX}/libqhullcpp/RoadLogEvent.h
-    )
+  )
 
   set(
     libqhullcpp_SOURCES
@@ -132,77 +139,89 @@ if(HPP_FCL_HAS_QHULL)
     ${Qhullcpp_PREFIX}/libqhullcpp/RoadError.cpp
     ${Qhullcpp_PREFIX}/libqhullcpp/RoadLogEvent.cpp
     ${libqhullcpp_HEADERS}
-    )
+  )
 
-  # TODO We compile qhullcpp because it is not provided in the binary package while
-  # the other parts of Qhull are released.
-  # Compile Qhull package as found on github leads to a link error (because it generates
-  # only a static library). One should be careful that the version of the qhull submodule
-  # of this git repo matches the version of qhull provided by the system.
+  # Append QHull sources into main library sources
   list(APPEND ${LIBRARY_NAME}_SOURCES ${libqhullcpp_SOURCES})
 endif()
 
-SET(PROJECT_HEADERS_FULL_PATH)
-FOREACH(header ${${PROJECT_NAME}_HEADERS})
-  LIST(APPEND PROJECT_HEADERS_FULL_PATH ${PROJECT_SOURCE_DIR}/${header})
-ENDFOREACH()
-LIST(APPEND PROJECT_HEADERS_FULL_PATH ${PROJECT_BINARY_DIR}/include/hpp/fcl/config.hh)
+# --------------------------------------------------------------------
+# Public headers (top-level CMakeLists.txt defines ${PROJECT_NAME}_HEADERS)
+# --------------------------------------------------------------------
+set(PROJECT_HEADERS_FULL_PATH)
+foreach(header ${${PROJECT_NAME}_HEADERS})
+  list(APPEND PROJECT_HEADERS_FULL_PATH ${PROJECT_SOURCE_DIR}/${header})
+endforeach()
+list(APPEND PROJECT_HEADERS_FULL_PATH
+  ${PROJECT_BINARY_DIR}/include/hpp/fcl/config.hh
+)
+
+# --------------------------------------------------------------------
+# Library type: static on MSVC, shared otherwise
+# --------------------------------------------------------------------
+set(HPP_FCL_LIB_TYPE SHARED)
+#if(MSVC)
+#  # On Windows we prefer a static lib for easier CRT handling
+#  set(HPP_FCL_LIB_TYPE SHARED)
+#endif()
+
 add_library(${LIBRARY_NAME}
-  SHARED
+  ${HPP_FCL_LIB_TYPE}
   ${PROJECT_HEADERS_FULL_PATH}
   ${${LIBRARY_NAME}_SOURCES}
-  )
+)
 
-# IDE sources and headers sorting
+# IDE sources and headers sorting (macros from hpp.cmake)
 ADD_SOURCE_GROUP(${LIBRARY_NAME}_SOURCES)
 ADD_HEADER_GROUP(PROJECT_HEADERS_FULL_PATH)
 
-TARGET_INCLUDE_DIRECTORIES(${LIBRARY_NAME}
+# --------------------------------------------------------------------
+# Include directories / compile definitions
+# --------------------------------------------------------------------
+
+# Eigen: vendored, provided by top-level CMakeLists.txt
+target_include_directories(${LIBRARY_NAME}
   SYSTEM PUBLIC
-  ${Boost_INCLUDE_DIRS}
-  )
+    ${EIGEN3_INCLUDE_DIR}
+)
 
-TARGET_LINK_LIBRARIES(${LIBRARY_NAME}
-  PRIVATE
-  ${assimp_LIBRARIES}
-  # assimp::assimp # Not working
-  )
+# Build- / install-interface include dirs for public headers
+target_include_directories(${LIBRARY_NAME}
+  PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 
+# Optional QHull
 if(HPP_FCL_HAS_QHULL)
   target_compile_definitions(${LIBRARY_NAME} PRIVATE -DHPP_FCL_HAS_QHULL)
   target_include_directories(${LIBRARY_NAME} SYSTEM PRIVATE
-    ${Qhull_r_INCLUDE_DIR} ${Qhullcpp_PREFIX})
+    ${Qhull_r_INCLUDE_DIR}
+    ${Qhullcpp_PREFIX}
+  )
   target_link_libraries(${LIBRARY_NAME} PRIVATE "${Qhull_r_LIBRARY}")
 endif()
 
-target_include_directories(${LIBRARY_NAME}
-  SYSTEM PUBLIC
-  ${EIGEN3_INCLUDE_DIR}
-  )
-target_include_directories(${LIBRARY_NAME}
-  SYSTEM PRIVATE
-  ${assimp_INCLUDE_DIR}
-  )
-
-target_include_directories(${LIBRARY_NAME}
-  PUBLIC
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-  )
-
-IF(octomap_FOUND)
+# Optional Octomap (currently disabled in top-level, but keep for future)
+if(octomap_FOUND)
   target_include_directories(${LIBRARY_NAME} SYSTEM PUBLIC ${OCTOMAP_INCLUDE_DIRS})
   target_link_libraries(${LIBRARY_NAME} PUBLIC ${OCTOMAP_LIBRARIES})
-  target_compile_definitions (${LIBRARY_NAME} PUBLIC
+  target_compile_definitions(${LIBRARY_NAME} PUBLIC
     -DHPP_FCL_HAVE_OCTOMAP
     -DOCTOMAP_MAJOR_VERSION=${OCTOMAP_MAJOR_VERSION}
     -DOCTOMAP_MINOR_VERSION=${OCTOMAP_MINOR_VERSION}
-    -DOCTOMAP_PATCH_VERSION=${OCTOMAP_PATCH_VERSION})
-ENDIF(octomap_FOUND)
+    -DOCTOMAP_PATCH_VERSION=${OCTOMAP_PATCH_VERSION}
+  )
+endif()
 
+# --------------------------------------------------------------------
+# Install
+# --------------------------------------------------------------------
 install(TARGETS ${LIBRARY_NAME}
   EXPORT ${TARGETS_EXPORT_NAME}
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}
-  INCLUDES DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
+  INCLUDES      DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}
+  LIBRARY       DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+  ARCHIVE       DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}
+  RUNTIME       DESTINATION ${CMAKE_INSTALL_FULL_BINDIR}
+)
