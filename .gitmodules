@@ -4,3 +4,6 @@
 [submodule "third-parties/qhull"]
 	path = third-parties/qhull
 	url = https://github.com/qhull/qhull.git
+[submodule "vendor/vcpkg"]
+	path = vendor/vcpkg
+	url = https://github.com/microsoft/vcpkg.git
