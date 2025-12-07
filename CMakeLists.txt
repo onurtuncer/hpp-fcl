@@ -43,7 +43,7 @@ set(CXX_DISABLE_WERROR TRUE)
 set(PROJECT_NAME hpp-fcl)
 set(PROJECT_DESCRIPTION
   "HPP fork of FCL -- The Flexible Collision Library"
-  )
+)
 set(PROJECT_USE_CMAKE_EXPORT FALSE)
 
 # Do not support CMake older than 2.8.12
@@ -146,22 +146,30 @@ if(HPP_FCL_HAS_QHULL)
 endif()
 
 # --------------------------------------------------------------------
-# Assimp (prefer vcpkg manifest mode, fall back to normal CONFIG find)
+# Assimp: vendored as git submodule under vendor/assimp
 # --------------------------------------------------------------------
-if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
-  set(_assimp_config
-      "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/assimp/assimpConfig.cmake")
+set(HPP_FCL_WITH_ASSIMP ON CACHE BOOL "Build hpp-fcl with Assimp support")
 
-  if(EXISTS "${_assimp_config}")
-    message(STATUS "Using Assimp config from vcpkg: ${_assimp_config}")
-    include("${_assimp_config}")
+if(HPP_FCL_WITH_ASSIMP)
+  # Let assimp build its *own* zlib – avoids needing system/vcpkg zlib.
+  set(ASSIMP_BUILD_ZLIB          ON  CACHE BOOL "Build and use internal zlib" FORCE)
+  set(ASSIMP_BUILD_TESTS         OFF CACHE BOOL "Disable assimp tests"        FORCE)
+  set(ASSIMP_BUILD_ASSIMP_TOOLS  OFF CACHE BOOL "Disable assimp tools"        FORCE)
+  set(ASSIMP_NO_EXPORT           ON  CACHE BOOL "Disable exporters"           FORCE)
+
+  add_subdirectory(vendor/assimp EXCLUDE_FROM_ALL)
+
+  if(TARGET assimp::assimp)
+    message(STATUS "Using vendored Assimp (target assimp::assimp)")
+    set(HPP_FCL_ASSIMP_TARGET assimp::assimp)
+  elseif(TARGET assimp)
+    message(STATUS "Using vendored Assimp (target assimp)")
+    set(HPP_FCL_ASSIMP_TARGET assimp)
   else()
-    message(FATAL_ERROR
-      "Assimp config not found at ${_assimp_config}. "
-      "Did vcpkg install assimp for triplet ${VCPKG_TARGET_TRIPLET}?")
+    message(FATAL_ERROR "Assimp submodule added, but no assimp target was created.")
   endif()
 else()
-  find_package(assimp CONFIG REQUIRED)
+  message(STATUS "Building hpp-fcl WITHOUT Assimp (HPP_FCL_WITH_ASSIMP=OFF)")
 endif()
 
 # --------------------------------------------------------------------
@@ -228,32 +236,15 @@ endif()
 # add_subdirectory(test)
 
 # --------------------------------------------------------------------
-# Wire Assimp to our library target
-# (hpp-fcl is defined in src/CMakeLists.txt)
+# pkg-config export (disabled in this fork)
 # --------------------------------------------------------------------
-if(TARGET hpp-fcl)
-  if(TARGET assimp::assimp)
-    target_link_libraries(hpp-fcl PUBLIC assimp::assimp)
-    target_include_directories(hpp-fcl PUBLIC
-      $<TARGET_PROPERTY:assimp::assimp,INTERFACE_INCLUDE_DIRECTORIES>
-    )
-  else()
-    message(FATAL_ERROR "assimp::assimp target not found – Assimp config was not loaded correctly.")
-  endif()
-else()
-  message(FATAL_ERROR "Target hpp-fcl not defined; check src/CMakeLists.txt")
-endif()
-
-# --------------------------------------------------------------------
-# pkg-config export
-# --------------------------------------------------------------------
-pkg_config_append_libs("hpp-fcl")
-if(HPP_FCL_HAVE_OCTOMAP)
-  # FCL_HAVE_OCTOMAP kept for backward compatibility reasons.
-  pkg_config_append_cflags(
-    "-DHPP_FCL_HAVE_OCTOMAP -DFCL_HAVE_OCTOMAP -DOCTOMAP_MAJOR_VERSION=${OCTOMAP_MAJOR_VERSION} -DOCTOMAP_MINOR_VERSION=${OCTOMAP_MINOR_VERSION} -DOCTOMAP_PATCH_VERSION=${OCTOMAP_PATCH_VERSION}")
-endif()
-
-# Install catkin package.xml (disabled in this fork)
+# pkg_config_append_libs("hpp-fcl")
+# if(HPP_FCL_HAVE_OCTOMAP)
+#   # FCL_HAVE_OCTOMAP kept for backward compatibility reasons.
+#   pkg_config_append_cflags(
+#     "-DHPP_FCL_HAVE_OCTOMAP -DFCL_HAVE_OCTOMAP -DOCTOMAP_MAJOR_VERSION=${OCTOMAP_MAJOR_VERSION} -DOCTOMAP_MINOR_VERSION=${OCTOMAP_MINOR_VERSION} -DOCTOMAP_PATCH_VERSION=${OCTOMAP_PATCH_VERSION}")
+# endif()
+#
 # install(FILES package.xml DESTINATION share/${PROJECT_NAME})
+
 
