@@ -1,0 +1,23 @@
+name: Windows MSVC
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure
+        run: cmake --preset vs-x64-release
+
+      - name: Build
+        run: cmake --build --preset vs-x64-release-build

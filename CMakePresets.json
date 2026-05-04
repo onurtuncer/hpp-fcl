@@ -9,8 +9,7 @@
     {
       "name": "vs-x64-release",
       "displayName": "VS 64-bit Release",
-      "description": "Visual Studio generator, x64, Release config for hpp-fcl",
-      "generator": "Visual Studio 17 2022", // or your exact VS generator
+      "description": "Visual Studio generator (auto-detected version), x64 Release for hpp-fcl",
       "architecture": "x64",
       "binaryDir": "${sourceDir}/build/vs-x64-release",
       "cacheVariables": {
@@ -27,4 +26,3 @@
     }
   ]
 }
-

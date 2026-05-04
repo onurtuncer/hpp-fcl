@@ -2,6 +2,7 @@ HPP-FCL — An extension of the Flexible Collision Library
 =======
 
 <p align="center">
+  <a href="https://github.com/onurtuncer/hpp-fcl/actions/workflows/windows-msvc2019.yml"><img src="https://github.com/onurtuncer/hpp-fcl/actions/workflows/windows-msvc2019.yml/badge.svg?branch=master" alt="Windows MSVC 2019"/></a>
   <a href="https://travis-ci.org/humanoid-path-planner/hpp-fcl"><img src="https://travis-ci.org/humanoid-path-planner/hpp-fcl.svg?branch=master" alt="Building status"/></a>
   <a href="https://gepgitlab.laas.fr/humanoid-path-planner/hpp-fcl/commits/master/"><img src="https://gepgitlab.laas.fr/humanoid-path-planner/hpp-fcl/badges/master/pipeline.svg" alt="Pipeline status"/></a>
   <a href="http://projects.laas.fr/gepetto/doc/humanoid-path-planner/hpp-fcl/master/coverage/"><img src="https://gepgitlab.laas.fr/humanoid-path-planner/hpp-fcl/badges/master/coverage.svg?job=doc-coverage" alt="Coverage report"/></a>
